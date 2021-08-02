@@ -9,6 +9,7 @@ import GHC.IO.Exception (ExitCode)
 import System.Info (os)
 
 type OptionMenu = (String, String)
+
 optionMainMenu :: [OptionMenu]
 optionMainMenu = 
     [ ("[1] New Game", "1")
@@ -38,9 +39,11 @@ prompt text = do
 controlIntegers :: String -> IO Int
 controlIntegers txt = do
     lineUser    <- prompt txt
-    if isNothing (readMaybe lineUser :: Maybe Int) 
-        then controlIntegers "The value isn't a number. Please re-enter: "
-        else return $ read lineUser
+    let valueInt = readMaybe lineUser :: Maybe Int
+        in  if isNothing valueInt then 
+                controlIntegers "The value isn't a number. Please re-enter: "
+            else 
+                return $ read lineUser
 
 
 mainMenu :: String -> [OptionMenu] -> IO String
@@ -49,37 +52,51 @@ mainMenu text xs = do
     putStrLn "<< GUESS THE NUMBER. A game written in Haskell >>"
     mapM_ (putStrLn . fst) xs
     option  <- prompt text
-    if option `elem` map snd xs 
-        then return option
-        else mainMenu "Incorrect Option. Please re-enter: " xs
+    if option `elem` mainOptionList then 
+        return option
+    else 
+        mainMenu "Incorrect Option. Please re-enter: " xs
+    where 
+        mainOptionList = map snd xs
+
+
+newGame :: String -> IO ()
+newGame text = do 
+    clear 
+    mapM_ (putStrLn . fst) optionNewGame
+    opt <- prompt text
+    if opt == "3" then 
+        return ()
+    else
+        if opt `elem` map snd optionNewGame then do
+            clear
+            putStrLn $ showMenuGame opt
+            _ <- getLine
+            newGame "Option: "
+        else
+            newGame "Incorrect Option. Please re-enter: "
+    where 
+        showMenuGame :: String -> String
+        showMenuGame text = 
+            case text of  
+                "1" -> "Player vs CPU"
+                "2" -> "Player vs Player"
+            ++ "\n" 
+            ++ "Continue press <ENTER>"
+
+
+showRanking :: IO ()
+showRanking = do 
+    clear 
+    putStrLn "Ranking of players\nContinue press <ENTER>"
+    _ <- getLine
+    return ()
 
 
 switchGame :: String -> IO ()
-switchGame optionUser
-    | optionUser == "1"     = newGame "Option: "
-    | optionUser == "2"     = showRanking
-    where 
-        newGame :: String -> IO ()
-        newGame text = do 
-            clear 
-            mapM_ (putStrLn . fst) optionNewGame
-            opt   <- prompt text
-            if opt == "3" then 
-                return ()
-            else 
-                if opt `elem` map snd optionNewGame then do
-                    clear
-                    putStrLn $ 
-                        case opt of 
-                            "1"     -> "Player vs CPU"
-                            "2"     -> "Player vs Player"
-                        ++ "\n" ++ "Continue press <ENTER>"
-                else
-                    newGame "Incorrect Option. Please re-enter: "
-        showRanking :: IO ()
-        showRanking = do 
-            clear 
-            putStrLn "Ranking of players\nContinue press <ENTER>"
+switchGame "1" = newGame "Option: "
+switchGame "2" = showRanking
+
 
 main :: IO ()
 main = do 

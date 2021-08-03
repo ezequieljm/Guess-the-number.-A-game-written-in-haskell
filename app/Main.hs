@@ -1,14 +1,18 @@
 module Main where
 
-import System.Random (Random (randomR), mkStdGen)
+import System.Random (Random (randomR), mkStdGen, StdGen)
 import System.IO (hFlush, stdout)
 import Data.Maybe (isNothing)
-import Text.Read (readMaybe, Lexeme (String))
+import Text.Read (readMaybe)
 import System.Process (system)
 import GHC.IO.Exception (ExitCode)
 import System.Info (os)
 
 type OptionMenu = (String, String)
+type RandomInterval a = (a,StdGen)
+type ValueOrdering = (Int, Ordering)
+
+data Interval = Initial | Final
 
 optionMainMenu :: [OptionMenu]
 optionMainMenu = 
@@ -36,16 +40,6 @@ prompt text = do
     getLine
 
 
-controlIntegers :: String -> IO Int
-controlIntegers txt = do
-    lineUser    <- prompt txt
-    let valueInt = readMaybe lineUser :: Maybe Int
-        in  if isNothing valueInt then 
-                controlIntegers "The value isn't a number. Please re-enter: "
-            else 
-                return $ read lineUser
-
-
 mainMenu :: String -> [OptionMenu] -> IO String
 mainMenu text xs = do 
     clear
@@ -70,19 +64,17 @@ newGame text = do
     else
         if opt `elem` map snd optionNewGame then do
             clear
-            putStrLn $ showMenuGame opt
+            showMenuGame opt
+            putStrLn "Continue press <ENTER>..."
             _ <- getLine
             newGame "Option: "
         else
             newGame "Incorrect Option. Please re-enter: "
     where 
-        showMenuGame :: String -> String
-        showMenuGame text = 
-            case text of  
-                "1" -> "Player vs CPU"
-                "2" -> "Player vs Player"
-            ++ "\n" 
-            ++ "Continue press <ENTER>"
+        showMenuGame :: String -> IO ()
+        showMenuGame text = case text of 
+                                "1" -> playerVsCpu
+                                "2" -> playerVsPlayer
 
 
 showRanking :: IO ()
@@ -107,3 +99,57 @@ main = do
         switchGame option 
         main
 
+
+playerVsCpu :: IO ()
+playerVsCpu = do 
+    initial <- controlIntegers Initial "Initial: "
+    final   <- controlIntegers Final "Final: "
+    let correctInterval = if initial >= final then (final, initial) else (initial, final)
+    randomInterval  <- createSeedValue correctInterval
+    runGamePvC randomInterval correctInterval
+
+
+createSeedValue :: (Int, Int) -> IO (RandomInterval Int)
+createSeedValue interval = return $ randomR interval (mkStdGen $ fst interval)
+
+
+getAndControlInput :: Interval -> String -> IO Int
+getAndControlInput intervalExt txt = do
+    inputUser <- prompt txt
+    let valueInt = readMaybe inputUser :: Maybe Int
+        in  if isNothing valueInt then
+                controlIntegers intervalExt "Incorrect Value. Please re-enter: "
+            else
+                return $ read inputUser
+
+
+controlIntegers :: Interval -> String -> IO Int
+controlIntegers Initial txt = do
+    clear
+    mapM_ putStrLn ["<<< PLAYER VS CPU >>", "Enter the initial value"]
+    getAndControlInput Initial txt
+controlIntegers Final txt = do
+    clear
+    mapM_ putStrLn ["<<< PLAYER VS CPU >>", "Enter the final value"]
+    getAndControlInput Final txt
+
+
+runGamePvC :: RandomInterval Int -> (Int, Int) -> IO ()
+runGamePvC randomInterval initialInteraval = do
+    print $ "Initial Interval: " ++ show initialInteraval
+    print $ "Random Interval: " ++ show randomInterval
+
+
+getNewInterval :: [ValueOrdering] -> IO (Int, Int)
+getNewInterval xs = 
+    let smallers = filter (\(x, y) -> y == LT)
+        greatters = filter (\(x, y) -> y == GT)
+        selectSmaller (x, y) (w, z) = if x >= w then (x, y) else (w, z)
+        selectGreatter (x, y) (w, z) = if x >= w then (w, z) else (x, y)
+        newInitial  = fst $ (foldl1 $! selectSmaller) (smallers xs)
+        newFinal    = fst $ (foldl1 $! selectGreatter) (greatters xs)
+        in return (newInitial, newFinal)
+
+
+playerVsPlayer :: IO ()
+playerVsPlayer = putStrLn "Player vs Player"

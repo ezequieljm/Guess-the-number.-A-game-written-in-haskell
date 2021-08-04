@@ -149,9 +149,9 @@ getNewInterval xs =
 -- Game functions
 
 -- Function get winner of game: The winners can are a person or cpu
-getWinner :: [ValueOrdering] -> Player -> StdGen -> Int -> IO Player
+getWinnerPvC :: [ValueOrdering] -> Player -> StdGen -> Int -> IO Player
 -- Case turn Person
-getWinner xs Person stdGenNext seedValue = do
+getWinnerPvC xs Person stdGenNext seedValue = do
     clear
     valueUser <- getInteger $ "Values entered: " ++ show xs ++ "\nWhat number am i thinking?: "
     let compareValueSeed = compare valueUser seedValue
@@ -166,13 +166,13 @@ getWinner xs Person stdGenNext seedValue = do
                     LT -> do 
                         putStrLn "Sorry the value is BIGGER. Turn CPU press ENTER..."
                         _ <- getLine
-                        getWinner lessThan Cpu stdGenNext seedValue
+                        getWinnerPvC lessThan Cpu stdGenNext seedValue
                     GT -> do
                         putStrLn "Sorry the value is SMALLER. Turn CPU press ENTER..."
                         _ <- getLine
-                        getWinner greaterThan Cpu stdGenNext seedValue
+                        getWinnerPvC greaterThan Cpu stdGenNext seedValue
 -- In case of turn Cpu
-getWinner xs Cpu stdGenNext seedValue = do
+getWinnerPvC xs Cpu stdGenNext seedValue = do
     interval <- getNewInterval xs
     let (valueCpu, newStdGen) = randomR interval stdGenNext :: (Int, StdGen)
         compareSeedValue = compare valueCpu seedValue
@@ -186,15 +186,15 @@ getWinner xs Cpu stdGenNext seedValue = do
                 putStrLn $ "Cpu said: " ++ show valueCpu ++ "\nPress Enter to continue..."
                 _ <- getLine
                 case compareSeedValue of 
-                    LT -> getWinner lessThan Person stdGenNext seedValue
-                    GT -> getWinner greaterThan Person stdGenNext seedValue
+                    LT -> getWinnerPvC lessThan Person stdGenNext seedValue
+                    GT -> getWinnerPvC greaterThan Person stdGenNext seedValue
                                                 
 runGamePvC :: RandomInterval Int -> (Int, Int) -> IO ()
 runGamePvC randomInterval initialInteraval = do
     let listValueOrdered = [(fst initialInteraval, LT),(snd initialInteraval, GT)]
         seedValue = fst randomInterval
         rootStdGen = snd randomInterval
-    winner <- getWinner listValueOrdered Person rootStdGen seedValue
+    winner <- getWinnerPvC listValueOrdered Person rootStdGen seedValue
     clear
     case winner of
         Person  -> putStrLn $ "Congratulations you Win!!! The number was " ++ show seedValue 
@@ -213,4 +213,84 @@ playerVsCpu = do
 
 -- PLAYER VS PLAYER
 playerVsPlayer :: IO ()
-playerVsPlayer = putStrLn "Player vs Player"
+playerVsPlayer = do
+    interval        <- getExtremesOfTheInterval
+    randomInterval  <- createSeedValue interval
+    runGamePVP (fst randomInterval) [(fst interval, LT),(snd interval, GT)] "PLAYER-1"
+            
+
+getExtremesOfTheInterval :: IO (Int, Int)
+getExtremesOfTheInterval = do
+    -- We get the first extreme of the interval
+    firstExt    <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the initial extreme\nInitial: " >>= controlInput
+    -- We get the second extreme of the interval
+    clear
+    secondExt   <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the final extreme\nFinal: " >>= controlInput
+    return $ 
+        if firstExt <= secondExt then 
+            (firstExt, secondExt)
+        else 
+            (secondExt, firstExt)
+    where 
+        controlInput :: String -> IO Int
+        controlInput value =
+            if isNothing (readMaybe value :: Maybe Int) then
+                clear >>
+                prompt "<<< PLAYER VS PLAYER >>>\nThe value isn't an integer. Please re-enter: " >>= controlInput
+            else
+                return $ read value
+
+
+runGamePVP :: Int -> [ValueOrdering] -> String -> IO ()
+runGamePVP seedValue xs player = do
+    clear
+    putStrLn $ "Turn " ++ player ++ "\nValues entered"
+    print xs
+    inputUser   <- prompt "\nEnter a value: " >>= controlInput
+    let lessThan = (inputUser, LT):xs
+        greaterThan = (inputUser, GT):xs
+    if "PLAYER-1" == player then
+        case compare inputUser seedValue of
+            EQ -> putStrLn $ "Win " ++ player
+            LT -> do 
+                clear
+                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
+                print xs
+                putStrLn "Sorry the value is BIGGER\nPress Enter to continue"
+                _ <- getLine
+                runGamePVP seedValue lessThan "PLAYER-2"
+            GT -> do
+                clear
+                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
+                print xs
+                putStrLn "Sorry the value is SMALLER\nPress Enter to continue"
+                _ <- getLine
+                runGamePVP seedValue greaterThan "PLAYER-2"
+    else 
+        case compare inputUser seedValue of
+            EQ -> putStrLn $ "Win " ++ player
+            LT -> do 
+                clear
+                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
+                print xs
+                putStrLn "Sorry the value is BIGGER\nPress Enter to continue"
+                _ <- getLine
+                runGamePVP seedValue lessThan "PLAYER-1"
+            GT -> do
+                clear
+                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
+                print xs
+                putStrLn "Sorry the value is SMALLER\nPress Enter to continue"
+                _ <- getLine
+                runGamePVP seedValue greaterThan "PLAYER-1"
+    where 
+        controlInput :: String -> IO Int
+        controlInput value =
+            if isNothing (readMaybe value :: Maybe Int) then do
+                clear
+                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
+                print xs
+                prompt "The value isn't an integer. Please re-enter: " >>= controlInput
+            else
+                return $ read value
+

@@ -212,85 +212,85 @@ playerVsCpu = do
 
 
 -- PLAYER VS PLAYER
-playerVsPlayer :: IO ()
-playerVsPlayer = do
-    interval        <- getExtremesOfTheInterval
-    randomInterval  <- createSeedValue interval
-    runGamePVP (fst randomInterval) [(fst interval, LT),(snd interval, GT)] "PLAYER-1"
-            
+
+controlInput :: String -> String -> IO Int
+controlInput msg str = 
+    if isNothing (readMaybe str :: Maybe Int) then do
+        clear
+        putStrLn msg
+        input <- prompt "The value isn't an integer. Please re-enter: "
+        controlInput msg input
+    else
+        return $ read str
+
 
 getExtremesOfTheInterval :: IO (Int, Int)
 getExtremesOfTheInterval = do
+    clear 
     -- We get the first extreme of the interval
-    firstExt    <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the initial extreme\nInitial: " >>= controlInput
+    firstExt            <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the initial extreme\nInitial: "
+    correctFirstExt     <- controlInput "<<< PLAYER VS PLAYER >>>\nEnter the initial extreme" firstExt
     -- We get the second extreme of the interval
     clear
-    secondExt   <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the final extreme\nFinal: " >>= controlInput
+    secondExt           <- prompt "<<< PLAYER VS PLAYER >>>\nEnter the final extreme\nFinal: "
+    correctSecondExt    <- controlInput "<<< PLAYER VS PLAYER >>>\nEnter the final extreme" secondExt
     return $ 
-        if firstExt <= secondExt then 
-            (firstExt, secondExt)
+        if correctFirstExt <= correctSecondExt then 
+            (correctFirstExt, correctSecondExt)
         else 
-            (secondExt, firstExt)
-    where 
-        controlInput :: String -> IO Int
-        controlInput value =
-            if isNothing (readMaybe value :: Maybe Int) then
-                clear >>
-                prompt "<<< PLAYER VS PLAYER >>>\nThe value isn't an integer. Please re-enter: " >>= controlInput
-            else
-                return $ read value
+            (correctSecondExt, correctFirstExt)
 
 
-runGamePVP :: Int -> [ValueOrdering] -> String -> IO ()
-runGamePVP seedValue xs player = do
+getPlayers :: [String] -> IO [String]
+getPlayers xs = do
     clear
-    putStrLn $ "Turn " ++ player ++ "\nValues entered"
-    print xs
-    inputUser   <- prompt "\nEnter a value: " >>= controlInput
-    let lessThan = (inputUser, LT):xs
-        greaterThan = (inputUser, GT):xs
-    if "PLAYER-1" == player then
-        case compare inputUser seedValue of
-            EQ -> putStrLn $ "Win " ++ player
-            LT -> do 
-                clear
-                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
-                print xs
-                putStrLn "Sorry the value is BIGGER\nPress Enter to continue"
-                _ <- getLine
-                runGamePVP seedValue lessThan "PLAYER-2"
-            GT -> do
-                clear
-                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
-                print xs
-                putStrLn "Sorry the value is SMALLER\nPress Enter to continue"
-                _ <- getLine
-                runGamePVP seedValue greaterThan "PLAYER-2"
-    else 
-        case compare inputUser seedValue of
-            EQ -> putStrLn $ "Win " ++ player
-            LT -> do 
-                clear
-                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
-                print xs
-                putStrLn "Sorry the value is BIGGER\nPress Enter to continue"
-                _ <- getLine
-                runGamePVP seedValue lessThan "PLAYER-1"
-            GT -> do
-                clear
-                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
-                print xs
-                putStrLn "Sorry the value is SMALLER\nPress Enter to continue"
-                _ <- getLine
-                runGamePVP seedValue greaterThan "PLAYER-1"
-    where 
-        controlInput :: String -> IO Int
-        controlInput value =
-            if isNothing (readMaybe value :: Maybe Int) then do
-                clear
-                putStrLn "<<< PLAYER VS PLAYER >>>\nValues entered"
-                print xs
-                prompt "The value isn't an integer. Please re-enter: " >>= controlInput
-            else
-                return $ read value
+    putStrLn "<<< PLAYER VS PLAYER >>>\nWirite name of the player and press ENTER. To exit type :exit or :e"
+    playerName <- prompt "Player Name: "
+    case playerName of
+        ":e"    -> return xs
+        ":exit" -> return xs 
+        _       -> getPlayers (playerName:xs)
 
+
+winnerGame :: Int -> [String] -> [ValueOrdering] -> IO (Bool, String, [ValueOrdering])
+winnerGame _ [] vs = return (False, "", vs)
+winnerGame seed (p:ps) vs = do
+    clear
+    putStrLn $ "<<< PLAYER VS PLAYER >>>\n" ++ "Values entered: " ++ show vs ++ "\nTurn of " ++ p
+    input       <- prompt "Enter a value: "
+    numberUser  <- controlInput ("<<< PLAYER VS PLAYER >>>\n" ++ "Values entered: " ++ show vs ++ "\nTurn of " ++ p) input
+    case compare numberUser seed of
+        EQ -> return (True, p, vs)
+        LT -> do
+            clear
+            putStrLn $ "<<< PLAYER VS PLAYER >>>\n" 
+                ++ "Values entered: " 
+                ++ show vs 
+                ++ "\nTurn of " ++ p 
+                ++ "\nFail. The value is Bigger"
+            _ <- getLine
+            winnerGame seed ps ((numberUser, LT):vs)
+        GT -> do
+            clear
+            putStrLn $ "<<< PLAYER VS PLAYER >>>\n" 
+                ++ "Values entered: " 
+                ++ show vs 
+                ++ "\nTurn of " ++ p 
+                ++ "\nFail. The value is Smaller"
+            _ <- getLine
+            winnerGame seed ps ((numberUser, GT):vs)
+
+
+
+gamePlayerVsPlayer :: Int -> [String] -> [ValueOrdering] -> IO ()
+gamePlayerVsPlayer seed ps vs = do
+    (win, p, xs) <- winnerGame seed ps vs
+    if win then putStrLn $ "Win player " ++ p else gamePlayerVsPlayer seed ps xs
+
+
+playerVsPlayer :: IO ()
+playerVsPlayer = do
+    players         <- getPlayers []
+    interval        <- getExtremesOfTheInterval
+    randomInterval  <- createSeedValue interval
+    gamePlayerVsPlayer (fst randomInterval) players [(fst interval, LT),(snd interval, GT)]

@@ -8,6 +8,10 @@ import System.Process (system)
 import GHC.IO.Exception (ExitCode)
 import System.Info (os)
 
+---------------------------------------------------------------------------------------------------
+-- Definitions datas and types
+---------------------------------------------------------------------------------------------------
+
 type OptionMenu = (String, String)
 type RandomInterval a = (a,StdGen)
 type ValueOrdering = (Int, Ordering)
@@ -30,9 +34,12 @@ optionNewGame =
     ]
 
 
+---------------------------------------------------------------------------------------------------
+--  Auxiliar functions
+---------------------------------------------------------------------------------------------------
+
 clear :: IO ExitCode
 clear = if os == "linux" then system "clear" else system "cls"
-
 
 prompt :: String -> IO String
 prompt text = do 
@@ -90,20 +97,12 @@ switchGame :: String -> IO ()
 switchGame "1" = newGame "Option: "
 switchGame "2" = showRanking
 
-
-main :: IO ()
-main = do 
-    option  <- mainMenu "Choose an option: " optionMainMenu
-    if option == "3" then 
-        putStrLn "End Game. "
-    else do
-        switchGame option 
-        main
-
-
--- PLAYER VS CPU
+---------------------------------------------------------------------------------------------------
+--  PLAYER VS CPU
+---------------------------------------------------------------------------------------------------
 
 -- Auxiliar functions
+
 createSeedValue :: (Int, Int) -> IO (RandomInterval Int)
 createSeedValue interval = return $ randomR interval (mkStdGen $ fst interval)
 
@@ -211,7 +210,9 @@ playerVsCpu = do
             runGamePvC randomInterval correctInterval
 
 
--- PLAYER VS PLAYER
+---------------------------------------------------------------------------------------------------
+--  PLAYER VS PLAYER
+---------------------------------------------------------------------------------------------------
 
 controlInput :: String -> String -> IO Int
 controlInput msg str = 
@@ -294,3 +295,18 @@ playerVsPlayer = do
     interval        <- getExtremesOfTheInterval
     randomInterval  <- createSeedValue interval
     gamePlayerVsPlayer (fst randomInterval) players [(fst interval, LT),(snd interval, GT)]
+
+
+
+---------------------------------------------------------------------------------------------------
+-- MAIN FUNCTION
+---------------------------------------------------------------------------------------------------
+
+main :: IO ()
+main = do 
+    option  <- mainMenu "Choose an option: " optionMainMenu
+    if option == "3" then 
+        putStrLn "End Game. "
+    else do
+        switchGame option 
+        main
